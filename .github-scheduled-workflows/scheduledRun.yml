@@ -1,4 +1,4 @@
-name: Cabinets update
+name: Cabinets update by schedule
 
 on:
   schedule:
@@ -24,9 +24,3 @@ jobs:
           pip install pyrebase
       - name: Run
         run: python scheduleParser.py
-
-      # If job finished successfully, remove the workflow file (and tag if necessary)
-      - name: Remove scheduled job
-        uses: cardinalby/unschedule-job-action@v1
-        with:
-          ghToken: ${{ secrets.WORKFLOWS_TOKEN }}

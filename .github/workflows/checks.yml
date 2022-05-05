@@ -1,4 +1,4 @@
-name: Cabinets update
+name: Cabinets update by push
 
 on:
   push:
