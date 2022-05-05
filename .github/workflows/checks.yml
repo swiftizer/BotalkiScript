@@ -9,20 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Install python
-        uses: actions/setup-python@v2
+      - uses: cardinalby/schedule-job-action@v1
         with:
-          python-version: 3.8
-      - name: Install libraries
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests
-          pip install pyrebase
-      - name: Run
-        run: python scheduleParser.py
-
-- uses: cardinalby/schedule-job-action@v1
-  with:
-    ghToken: ${{ secrets.WORKFLOWS_TOKEN }}
-    templateYmlFile: '.github-scheduled-workflows/checks.yml'
+          ghToken: ${{ secrets.WORKFLOWS_TOKEN }}
+          templateYmlFile: '.github-scheduled-workflows/checks.yml'
