@@ -1,0 +1,23 @@
+name: Cabinets update
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install libraries
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+          pip install pyrebase
+      - name: Run
+        run: python scheduleParser.py
