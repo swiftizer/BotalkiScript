@@ -2,155 +2,182 @@ import requests
 from requests.structures import CaseInsensitiveDict
 from time import *
 import pyrebase
-# from firebase import Firebase
 
-urlMain = 'https://lks.bmstu.ru/schedule/list'
-urlSearch = "https://api.bitop.bmstu.ru/search/unit"
-urlSchedule = 'https://api.bitop.bmstu.ru/schedule/'
 
-headersSearch = CaseInsensitiveDict()
-headersSearch["accept"] = "application/json"
-headersSearch["x-bb-token"] = "bb-at-bl525mhcfrndq3z7rse3m4fnd2nezr6z9t2e3hlsnlc4s"
-headersSearch["Content-Type"] = "application/json"
+def process():
+    urlMain = 'https://lks.bmstu.ru/schedule/list'
+    urlSearch = "https://api.bitop.bmstu.ru/search/unit"
+    urlSchedule = 'https://api.bitop.bmstu.ru/schedule/'
 
-headersSchedule = CaseInsensitiveDict()
-headersSchedule["accept"] = "application/json"
-headersSchedule["x-bb-token"] = "bb-at-bl525mhcfrndq3z7rse3m4fnd2nezr6z9t2e3hlsnlc4s"
+    headersSearch = CaseInsensitiveDict()
+    headersSearch["accept"] = "application/json"
+    headersSearch["x-bb-token"] = "bb-at-bl525mhcfrndq3z7rse3m4fnd2nezr6z9t2e3hlsnlc4s"
+    headersSearch["Content-Type"] = "application/json"
 
-# print(len(open('uuids.txt').readlines()))
-# exit(0)
-# with open('uuids.txt', 'a') as f:
-#     f.write(requests.get(urlSchedule+'7377f733-7bf4-4416-b96f-74b190e98b03', headers=headersSchedule).json()['semester_start'] + '\n')
+    headersSchedule = CaseInsensitiveDict()
+    headersSchedule["accept"] = "application/json"
+    headersSchedule["x-bb-token"] = "bb-at-bl525mhcfrndq3z7rse3m4fnd2nezr6z9t2e3hlsnlc4s"
 
-htmlLines = requests.Session().get(urlMain).content.decode().split('\n')
-groupsNames = []
-groupsIDs = []
-groupsSchedules = []
-allCabinets = []
-# print(html)
+    # Получаем html сайта с расписанием
+    htmlLines = requests.Session().get(urlMain).content.decode().split('\n')
+    print('Получили html с группами')
 
-for i, line in enumerate(htmlLines):
-    if 'class="btn btn-primary text-nowrap" style="margin:1px">' in line:
-        groupsNames.append(htmlLines[i+1].strip(' '))
+    groupsNames = []
+    groupsIDs = []
+    groupsSchedules = []
+    allCabinets = []
 
-print(len(groupsNames))
+    # Анализируем построчно html: если кнопка с расписанием группы зеленая
+    # (то есть у группы есть расписание) - добавляем в массив валидных групп соответвующую группу
+    for i, line in enumerate(htmlLines):
+        if 'class="btn btn-primary text-nowrap" style="margin:1px">' in line:
+            groupsNames.append(htmlLines[i+1].strip(' '))
 
-try:
-    with open('uuids.txt') as f:
-        oldStartDate = f.readline()
-except:
-    oldStartDate = None
-actualStartDate = requests.get(urlSchedule+requests.post(urlSearch,
-                                     headers=headersSearch,
-                                     data=('{ '+f'"parent_uuid": "", "query": "{groupsNames[0]}", "type": "group"'+'}')
-                                     .encode('utf-8')).json()['items'][0]['uuid'],
-                                     headers=headersSchedule).json()['semester_start'] + '\n'
+    # Для того чтобы понять, надо ли заново вытаскивать все группы с сайта, надо проверить актуальность
+    # имеющихся данных. Если мы уже выкачивали группы, то первой строкой в файле uuids.txt записана дата
+    # начала текущего семестра. Мы сравниваем эту дату <oldStartDate> с той, которая сейчас на сайте <actualStartDate>,
+    # и в зависимости от совпадения/несовпадения завершаем скриптос или скачиваем новые данные
+    try:
+        with open('uuids.txt') as f:
+            oldStartDate = f.readline()
+    except:
+        oldStartDate = None
 
-if oldStartDate != actualStartDate:
-    for i, name in enumerate(groupsNames):
-        data = '{ '+f'"parent_uuid": "", "query": "{name}", "type": "group"'+'}'
-        json = requests.post(urlSearch, headers=headersSearch, data=data.encode('utf-8')).json()
-        groupsIDs.append(json['items'][0]['uuid'])
-        sleep(0.4)
-        if not i % 10:
-            # print(i, len(groupsIDs), groupsIDs)
-            print(f'{i}/{len(groupsNames)}')
+    actualStartDate = requests.get(urlSchedule+requests.post(urlSearch,
+                                         headers=headersSearch,
+                                         data=('{ '+f'"parent_uuid": "", "query": "{groupsNames[0]}", "type": "group"'+'}')
+                                         .encode('utf-8')).json()['items'][0]['uuid'],
+                                         headers=headersSchedule).json()['semester_start'] + '\n'
 
-    with open('uuids.txt', 'w') as f:
-        f.write(requests.get(urlSchedule + groupsIDs[0], headers=headersSchedule).json()['semester_start'] + '\n')
-        for uuid in groupsIDs:
-            f.write(uuid+'\n')
+    if oldStartDate != actualStartDate:
+        print('Данные устарели/их нет. Ну шо, го их скачаем...')
+        print(f'Нада выкачать инфу про {len(groupsNames)} групп')
+        print(f'Выкачиваю ID-шники:')
+        # По именам валидных групп выкачиваем их uuids
+        for i, name in enumerate(groupsNames):
+            data = '{ '+f'"parent_uuid": "", "query": "{name}", "type": "group"'+'}'
+            json = requests.post(urlSearch, headers=headersSearch, data=data.encode('utf-8')).json()
+            groupsIDs.append(json['items'][0]['uuid'])
+            sleep(0.4)
+            if not i % 10:
+                # печать прогресса
+                print(f'{i}/{len(groupsNames)}')
 
-    with open('uuids.txt') as f:
-        groupsIDs = [id.strip('\n') for id in f.readlines()[1:]]
+        # Пишем в uuids.txt первой строкой - актуальную дату начала сема, последующими - uuids валидных групп
+        with open('uuids.txt', 'w') as f:
+            f.write(requests.get(urlSchedule + groupsIDs[0], headers=headersSchedule).json()['semester_start'] + '\n')
+            for uuid in groupsIDs:
+                f.write(uuid+'\n')
 
-    # print(requests.get(urlSchedule + groupsIDs[0], headers=headersSchedule).json())
+        pares = {'08:30:00': 0, '10:15:00': 1, '12:00:00': 2, '13:50:00': 3, '15:40:00': 4, '17:25:00': 5, '19:10:00': 6}
 
-    # таблицы свободных аудиторий (строка - день, столбец - пара)
-    pares = {'08:30:00': 0, '10:15:00': 1, '12:00:00': 2, '13:50:00': 3, '15:40:00': 4, '17:25:00': 5, '19:10:00': 6}
-    numeratorFreeCabinets = [[[] for _ in range(7)] for _ in range(6)]
-    denominatorFreeCabinets = [[[] for _ in range(7)] for _ in range(6)]
+        # таблицы свободных аудиторий (строка - день, столбец - пара)
+        numeratorFreeCabinets = [[[] for _ in range(7)] for _ in range(6)]
+        denominatorFreeCabinets = [[[] for _ in range(7)] for _ in range(6)]
 
-    def isCabinetSuitable(cab):
-        if 'л' in cab or 'ю' in cab:
-            return 1
-        try:
-            float(cab.strip('кк '))
-            return 1
-        except:
-            return 0
-
-    for i, id in enumerate(groupsIDs):
-        json = requests.get(urlSchedule + id, headers=headersSchedule).json()
-        for lesson in json['lessons']:
-            day = lesson['day'] - 1
+        def isCabinetSuitable(cab):
+            if 'л' in cab or 'ю' in cab:
+                return 1
             try:
-                pare = pares[lesson['start_at']]
+                float(cab.strip('кк '))
+                return 1
             except:
-                pare = 0  # оч стремный момент
-            cabinet = lesson['cabinet']
-            is_numerator = lesson['is_numerator']
-            if isCabinetSuitable(cabinet):
-                allCabinets.append(cabinet)
-                if is_numerator:
-                    numeratorFreeCabinets[day][pare].append(cabinet)
-                else:
-                    denominatorFreeCabinets[day][pare].append(cabinet)
-        # groupsSchedules.append(json)
-        sleep(0.4)
-        if not i % 10:
-            print(f'{i}/{len(groupsIDs)}')
-        # if not (i + 1) % 40:
-        #     break
+                return 0
 
-    allCabinets = set(allCabinets)
+        def unspecTimeChooser(unspecTime):
+            validTimes = ['08:30:00', '10:15:00', '12:00:00', '13:50:00', '15:40:00', '17:25:00', '19:10:00']
+            validTimesMinutes = [list(map(int, t.split(':')[:-1]))[0] * 60 + list(map(int, t.split(':')[:-1]))[1] for t in
+                                 validTimes]
+            unspecTimeMinutes = list(map(int, unspecTime.split(':')[:-1]))[0] * 60 + \
+                                list(map(int, unspecTime.split(':')[:-1]))[1]
+            validTimesMinutes.append(unspecTimeMinutes)
+            validTimesMinutes.sort()
+            ind = validTimesMinutes.index(unspecTimeMinutes)
+            prevTime = validTimesMinutes[ind - 1]
+            curTime = validTimesMinutes[ind]
+            nextTime = validTimesMinutes[ind + 1]
 
-    def cabinetsCmp(cab):
-        if 'л' not in cab:
-            return float(cab.strip('ю').strip('кк ').strip('а')) - 2000
-        return float(cab.strip('л').strip('кк ').strip('а'))
+            validTimesMinutes.pop(ind)
+            if curTime - prevTime < nextTime - curTime:
+                return validTimesMinutes.index(prevTime)
+            else:
+                return validTimesMinutes.index(nextTime)
 
-    for day in range(len(numeratorFreeCabinets)):
-        for pare in range(len(numeratorFreeCabinets[0])):
-            numeratorFreeCabinets[day][pare] = sorted(list(allCabinets - set(numeratorFreeCabinets[day][pare])), key=cabinetsCmp)
-            denominatorFreeCabinets[day][pare] = sorted(list(allCabinets - set(denominatorFreeCabinets[day][pare])))
+        # Скачиваем расписание каждой группы
+        print(f'\nВыкачиваю кабинеты:')
+        for i, id in enumerate(groupsIDs):
+            json = requests.get(urlSchedule + id, headers=headersSchedule).json()
+            # Анализируем инфу про каждую пару
+            for lesson in json['lessons']:
+                day = lesson['day'] - 1
+                try:
+                    pare = pares[lesson['start_at']]
+                except:
+                    # Если время начала пары нестандартное (12:20 например), то выбираем ближайшее к нему
+                    pare = unspecTimeChooser(lesson['start_at'])
 
-    with open('res.txt', 'w') as f:
+                cabinet = lesson['cabinet']
+                is_numerator = lesson['is_numerator']
+                if isCabinetSuitable(cabinet):
+                    allCabinets.append(cabinet)
+                    if is_numerator:
+                        numeratorFreeCabinets[day][pare].append(cabinet)
+                    else:
+                        denominatorFreeCabinets[day][pare].append(cabinet)
+            sleep(0.4)
+            if not i % 10:
+                print(f'{i}/{len(groupsIDs)}')
+
+        # удаляем дублирующиеся аудитории
+        allCabinets = set(allCabinets)
+
+        # сортируем аудитории для удобства (по этажам + сначала гз, оптом улк)
+        def cabinetsCmp(cab):
+            if 'л' not in cab:
+                return float(cab.strip('ю').strip('кк ').strip('а')) - 2000
+            return float(cab.strip('л').strip('кк ').strip('а'))
+
         for day in range(len(numeratorFreeCabinets)):
             for pare in range(len(numeratorFreeCabinets[0])):
-                f.write('#'.join(numeratorFreeCabinets[day][pare])+('##' if pare != len(numeratorFreeCabinets[0])-1 else ''))
-            f.write('###') if day != len(numeratorFreeCabinets)-1 else f.write('')
-        f.write('\n')
+                numeratorFreeCabinets[day][pare] = sorted(list(allCabinets - set(numeratorFreeCabinets[day][pare])), key=cabinetsCmp)
+                denominatorFreeCabinets[day][pare] = sorted(list(allCabinets - set(denominatorFreeCabinets[day][pare])), key=cabinetsCmp)
 
-        for day in range(len(denominatorFreeCabinets)):
-            for pare in range(len(denominatorFreeCabinets[0])):
-                f.write('#'.join(denominatorFreeCabinets[day][pare])+('##' if pare != len(denominatorFreeCabinets[0])-1 else ''))
-            f.write('###') if day != len(denominatorFreeCabinets)-1 else f.write('')
+        # заполняем файл с результатом.
+        # Структура файла:
+        # 1-я строка (аудитории числителя):
+        # через # - аудитории конкретной пары конкретного дня
+        # после ## - аудитории следующей пары конкретного дня
+        # после ### - аудитории следующего дня
+        # 2-я строка (аудитории знаменателя): то же самое
+        with open('res.txt', 'w') as f:
+            for day in range(len(numeratorFreeCabinets)):
+                for pare in range(len(numeratorFreeCabinets[0])):
+                    f.write('#'.join(numeratorFreeCabinets[day][pare])+('##' if pare != len(numeratorFreeCabinets[0])-1 else ''))
+                f.write('###') if day != len(numeratorFreeCabinets)-1 else f.write('')
+            f.write('\n')
+
+            for day in range(len(denominatorFreeCabinets)):
+                for pare in range(len(denominatorFreeCabinets[0])):
+                    f.write('#'.join(denominatorFreeCabinets[day][pare])+('##' if pare != len(denominatorFreeCabinets[0])-1 else ''))
+                f.write('###') if day != len(denominatorFreeCabinets)-1 else f.write('')
 
 
-with open('res.txt') as f:
-    numeratorFreeCabinets = [[pare.split('#') for pare in day.split('##')] for day in f.readline().strip('\n').split('###')]
-    denominatorFreeCabinets = [[pare.split('#') for pare in day.split('##')] for day in f.readline().split('###')]
+        # Заливаем файл в firebase.storage
+        config = {
+            "apiKey": "AIzaSyBB0Rc45M5ioYI2uH8wNuZ37IxS0UA7e64",
+            "authDomain": "botalki.firebaseapp.com",
+            "databaseURL": "gs://botalki.appspot.com",
+            "projectId": "botalki",
+            "storageBucket": "botalki.appspot.com",
+            "messagingSenderId": "1078676302571",
+            "appId": "1:1078676302571:web:3b94f33569a53a64452cae",
+            "measurementId": "G-TB9KDEX6XW"
+        }
 
+        firebase = pyrebase.initialize_app(config)
+        storage = firebase.storage()
 
-print("after")
-# print(requests.get(urlSchedule+'7377f733-7bf4-4416-b96f-74b190e98b03', headers=headersSchedule).json())
-# print(numeratorFreeCabinets, denominatorFreeCabinets)
-# print(resp.json())
-
-config = {
-    "apiKey": "AIzaSyBB0Rc45M5ioYI2uH8wNuZ37IxS0UA7e64",
-    "authDomain": "botalki.firebaseapp.com",
-    "databaseURL": "gs://botalki.appspot.com",
-    "projectId": "botalki",
-    "storageBucket": "botalki.appspot.com",
-    "messagingSenderId": "1078676302571",
-    "appId": "1:1078676302571:web:3b94f33569a53a64452cae",
-    "measurementId": "G-TB9KDEX6XW"
-}
-
-# firebase = Firebase(config)
-firebase = pyrebase.initialize_app(config)
-storage = firebase.storage()
-
-storage.child('cabinets.txt').put('res.txt')
+        storage.child('cabinets.txt').put('res.txt')
+        print(f'Залил на firebase актуальную инфу. Не благодари')
+    else:
+        print('Данные актуальны!')
