@@ -57,6 +57,7 @@ def process():
         with open('uuids.txt') as f:
             oldStartDate = f.readline()
     except:
+        print('На firebase нет файла uuids.txt или его не удалось скачать...')
         oldStartDate = None
 
     actualStartDate = requests.get(urlSchedule+requests.post(urlSearch,

@@ -1,9 +1,8 @@
 name: Cabinets update
 
 on:
-  push:
-    branches:
-      - main
+  schedule:
+  - cron: "*/10 * * * *"
 
 jobs:
   build:
