@@ -181,3 +181,11 @@ def process():
         print(f'Залил на firebase актуальную инфу. Не благодари')
     else:
         print('Данные актуальны!')
+
+
+if __name__ == '__main__':
+    try:
+        process()
+    except Exception as e:
+        print('Краш на серваке. Ну или мой скриптос гавно...')
+        print(e)
