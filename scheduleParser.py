@@ -99,7 +99,7 @@ if oldStartDate != actualStartDate:
         # groupsSchedules.append(json)
         sleep(0.4)
         if not i % 10:
-            print(i, len(set(allCabinets)), set(allCabinets))
+            print(f'{i}/{len(groupsIDs)}')
         # if not (i + 1) % 40:
         #     break
 
