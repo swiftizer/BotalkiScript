@@ -187,7 +187,7 @@ def process():
         storage.child('cabinets.txt').put('res.txt')
         print(f'\nЗалил на firebase актуальную инфу. Не благодари')
     else:
-        print('\nДанные актуальны!')
+        print('Данные актуальны!')
 
 
 if __name__ == '__main__':
