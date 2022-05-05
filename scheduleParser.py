@@ -5,6 +5,22 @@ import pyrebase
 
 
 def process():
+    # Настраиваем firebase и качаем файл uuids.txt
+    config = {
+        "apiKey": "AIzaSyBB0Rc45M5ioYI2uH8wNuZ37IxS0UA7e64",
+        "authDomain": "botalki.firebaseapp.com",
+        "databaseURL": "gs://botalki.appspot.com",
+        "projectId": "botalki",
+        "storageBucket": "botalki.appspot.com",
+        "messagingSenderId": "1078676302571",
+        "appId": "1:1078676302571:web:3b94f33569a53a64452cae",
+        "measurementId": "G-TB9KDEX6XW"
+    }
+
+    firebase = pyrebase.initialize_app(config)
+    storage = firebase.storage()
+    storage.child('uuids.txt').download('uuids.txt')
+
     urlMain = 'https://lks.bmstu.ru/schedule/list'
     urlSearch = "https://api.bitop.bmstu.ru/search/unit"
     urlSchedule = 'https://api.bitop.bmstu.ru/schedule/'
@@ -20,7 +36,7 @@ def process():
 
     # Получаем html сайта с расписанием
     htmlLines = requests.Session().get(urlMain).content.decode().split('\n')
-    print('Получили html с группами')
+    print('Получил html с группами')
 
     groupsNames = []
     groupsIDs = []
@@ -50,16 +66,16 @@ def process():
                                          headers=headersSchedule).json()['semester_start'] + '\n'
 
     if oldStartDate != actualStartDate:
-        print('Данные устарели/их нет. Ну шо, го их скачаем...')
+        print('\nДанные устарели/их нет. Ну шо, го их скачаем...')
         print(f'Нада выкачать инфу про {len(groupsNames)} групп')
-        print(f'Выкачиваю ID-шники:')
+        print(f'\nВыкачиваю ID-шники:')
         # По именам валидных групп выкачиваем их uuids
         for i, name in enumerate(groupsNames):
             data = '{ '+f'"parent_uuid": "", "query": "{name}", "type": "group"'+'}'
             json = requests.post(urlSearch, headers=headersSearch, data=data.encode('utf-8')).json()
             groupsIDs.append(json['items'][0]['uuid'])
             sleep(0.4)
-            if not i % 10:
+            if not i % 100:
                 # печать прогресса
                 print(f'{i}/{len(groupsNames)}')
 
@@ -68,6 +84,9 @@ def process():
             f.write(requests.get(urlSchedule + groupsIDs[0], headers=headersSchedule).json()['semester_start'] + '\n')
             for uuid in groupsIDs:
                 f.write(uuid+'\n')
+
+        # Заливаем на firebase
+        storage.child('uuids.txt').put('uuids.txt')
 
         pares = {'08:30:00': 0, '10:15:00': 1, '12:00:00': 2, '13:50:00': 3, '15:40:00': 4, '17:25:00': 5, '19:10:00': 6}
 
@@ -104,7 +123,7 @@ def process():
                 return validTimesMinutes.index(nextTime)
 
         # Скачиваем расписание каждой группы
-        print(f'\nВыкачиваю кабинеты:')
+        print(f'\nВыкачиваю аудитории:')
         for i, id in enumerate(groupsIDs):
             json = requests.get(urlSchedule + id, headers=headersSchedule).json()
             # Анализируем инфу про каждую пару
@@ -125,7 +144,7 @@ def process():
                     else:
                         denominatorFreeCabinets[day][pare].append(cabinet)
             sleep(0.4)
-            if not i % 10:
+            if not i % 100:
                 print(f'{i}/{len(groupsIDs)}')
 
         # удаляем дублирующиеся аудитории
@@ -137,6 +156,8 @@ def process():
                 return float(cab.strip('ю').strip('кк ').strip('а')) - 2000
             return float(cab.strip('л').strip('кк ').strip('а'))
 
+        # Сейчас в numeratorFreeCabinets и в denominatorFreeCabinets лежат ЗАНЯТЫЕ аудитории. Чтоб положить
+        # туда своболные - делаем разность множества всех аудиторий и занятых для конкретных дня и пары
         for day in range(len(numeratorFreeCabinets)):
             for pare in range(len(numeratorFreeCabinets[0])):
                 numeratorFreeCabinets[day][pare] = sorted(list(allCabinets - set(numeratorFreeCabinets[day][pare])), key=cabinetsCmp)
@@ -163,24 +184,10 @@ def process():
 
 
         # Заливаем файл в firebase.storage
-        config = {
-            "apiKey": "AIzaSyBB0Rc45M5ioYI2uH8wNuZ37IxS0UA7e64",
-            "authDomain": "botalki.firebaseapp.com",
-            "databaseURL": "gs://botalki.appspot.com",
-            "projectId": "botalki",
-            "storageBucket": "botalki.appspot.com",
-            "messagingSenderId": "1078676302571",
-            "appId": "1:1078676302571:web:3b94f33569a53a64452cae",
-            "measurementId": "G-TB9KDEX6XW"
-        }
-
-        firebase = pyrebase.initialize_app(config)
-        storage = firebase.storage()
-
         storage.child('cabinets.txt').put('res.txt')
-        print(f'Залил на firebase актуальную инфу. Не благодари')
+        print(f'\nЗалил на firebase актуальную инфу. Не благодари')
     else:
-        print('Данные актуальны!')
+        print('\nДанные актуальны!')
 
 
 if __name__ == '__main__':
