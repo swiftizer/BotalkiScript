@@ -12,4 +12,4 @@ jobs:
       - uses: cardinalby/schedule-job-action@v1
         with:
           ghToken: ${{ secrets.WORKFLOWS_TOKEN }}
-          templateYmlFile: '.github-scheduled-workflows/checks.yml'
+          templateYmlFile: '.github-scheduled-workflows/scheduledRun.yml'
