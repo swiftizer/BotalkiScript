@@ -194,6 +194,13 @@ def process():
 if __name__ == '__main__':
     try:
         process()
-    except Exception as e:
-        print('Краш на серваке. Ну или мой скриптос гавно...')
-        print(e)
+    except:
+        print('Паника на корабле! Но возможно лежит сервак а не мой скрипт. Подождем 3\'...')
+        sleep(180)
+
+        try:
+            process()
+        except Exception as e:
+            print('И все же скрипт гавно... Чини!')
+            print(e)
+            exit(1)
