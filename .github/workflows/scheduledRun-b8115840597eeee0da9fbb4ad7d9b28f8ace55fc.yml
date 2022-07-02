@@ -1,0 +1,28 @@
+name: Cabinets update by schedule
+'on':
+  schedule:
+    - cron: 0 0 * * *
+jobs:
+  updating:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: '${{ env.DELAYED_JOB_CHECKOUT_REF }}'
+      - name: Install python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install libraries
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+          pip install pyrebase
+      - name: Run
+        run: python scheduleParser.py
+    env:
+      DELAYED_JOB_CHECKOUT_REF: b8115840597eeee0da9fbb4ad7d9b28f8ace55fc
+      DELAYED_JOB_CHECKOUT_REF_IS_TAG: 'false'
+      DELAYED_JOB_WORKFLOW_FILE_PATH: >-
+        .github/workflows/scheduledRun-b8115840597eeee0da9fbb4ad7d9b28f8ace55fc.yml
+      DELAYED_JOB_WORKFLOW_UNSCHEDULE_TARGET_BRANCH: main
