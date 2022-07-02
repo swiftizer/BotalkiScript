@@ -48,6 +48,10 @@ def process():
     for i, line in enumerate(htmlLines):
         if 'class="btn btn-primary text-nowrap" style="margin:1px">' in line:
             groupsNames.append(htmlLines[i+1].strip(' '))
+            
+    if not groupsNames:
+        print('Судя по всему щас каникулы и все расписания неактивны..')
+        return
 
     # Для того чтобы понять, надо ли заново вытаскивать все группы с сайта, надо проверить актуальность
     # имеющихся данных. Если мы уже выкачивали группы, то первой строкой в файле uuids.txt записана дата
