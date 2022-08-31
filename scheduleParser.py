@@ -90,9 +90,6 @@ def process():
             for uuid in groupsIDs:
                 f.write(uuid+'\n')
 
-        # Заливаем на firebase
-        storage.child('uuids.txt').put('uuids.txt')
-
         pares = {'08:30:00': 0, '10:15:00': 1, '12:00:00': 2, '13:50:00': 3, '15:40:00': 4, '17:25:00': 5, '19:10:00': 6}
 
         # таблицы свободных аудиторий (строка - день, столбец - пара)
@@ -188,7 +185,8 @@ def process():
                 f.write('###') if day != len(denominatorFreeCabinets)-1 else f.write('')
 
 
-        # Заливаем файл в firebase.storage
+        # Заливаем файлы в firebase.storage
+        storage.child('uuids.txt').put('uuids.txt')
         storage.child('cabinets.txt').put('res.txt')
         print(f'\nЗалил на firebase актуальную инфу. Не благодари')
     else:
