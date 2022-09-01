@@ -165,7 +165,7 @@ def process():
                 numeratorFreeCabinets[day][pare] = sorted(list(allCabinets - set(numeratorFreeCabinets[day][pare])), key=cabinetsCmp)
                 denominatorFreeCabinets[day][pare] = sorted(list(allCabinets - set(denominatorFreeCabinets[day][pare])), key=cabinetsCmp)
 
-        # заполняем файл с результатом.
+        # заполняем файл с результатом
         # Структура файла:
         # 1-я строка (аудитории числителя):
         # через # - аудитории конкретной пары конкретного дня
