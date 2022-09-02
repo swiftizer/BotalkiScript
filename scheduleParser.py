@@ -47,8 +47,8 @@ def process():
     # (то есть у группы есть расписание) - добавляем в массив валидных групп соответвующую группу
     for i, line in enumerate(htmlLines):
         if 'class="btn btn-primary text-nowrap" style="margin:1px">' in line:
-            groupsNames.append(htmlLines[i+1].strip(' '))
-            
+            groupsNames.append(htmlLines[i + 1].strip(' '))
+
     if not groupsNames:
         print('Судя по всему щас каникулы и все расписания неактивны..')
         return
@@ -64,11 +64,15 @@ def process():
         print('На firebase нет файла uuids.txt или его не удалось скачать...')
         oldStartDate = None
 
-    actualStartDate = requests.get(urlSchedule+requests.post(urlSearch,
-                                         headers=headersSearch,
-                                         data=('{ '+f'"parent_uuid": "", "query": "{groupsNames[0]}", "type": "group"'+'}')
-                                         .encode('utf-8')).json()['items'][0]['uuid'],
-                                         headers=headersSchedule).json()['semester_start'] + '\n'
+    actualStartDate = requests.get(urlSchedule + requests.post(urlSearch,
+                                                               headers=headersSearch,
+                                                               data=(
+                                                                           '{ ' + f'"parent_uuid": "", "query": "{groupsNames[0]}", "type": "group"' + '}')
+                                                               .encode('utf-8')).json()['items'][0]['uuid'],
+                                   headers=headersSchedule).json()['semester_start'] + '\n'
+
+    if not actualStartDate:
+        raise
 
     if oldStartDate != actualStartDate:
         print('\nДанные устарели/их нет. Ну шо, го их скачаем...')
@@ -76,7 +80,7 @@ def process():
         print(f'\nВыкачиваю ID-шники:')
         # По именам валидных групп выкачиваем их uuids
         for i, name in enumerate(groupsNames):
-            data = '{ '+f'"parent_uuid": "", "query": "{name}", "type": "group"'+'}'
+            data = '{ ' + f'"parent_uuid": "", "query": "{name}", "type": "group"' + '}'
             json = requests.post(urlSearch, headers=headersSearch, data=data.encode('utf-8')).json()
             groupsIDs.append(json['items'][0]['uuid'])
             sleep(0.4)
@@ -88,35 +92,35 @@ def process():
         with open('uuids.txt', 'w') as f:
             f.write(requests.get(urlSchedule + groupsIDs[0], headers=headersSchedule).json()['semester_start'] + '\n')
             for uuid in groupsIDs:
-                f.write(uuid+'\n')
+                f.write(uuid + '\n')
 
-        pares = {'08:30:00': 0, '10:15:00': 1, '12:00:00': 2, '13:50:00': 3, '15:40:00': 4, '17:25:00': 5, '19:10:00': 6}
+        pares = {'08:30:00': 0, '10:15:00': 1, '12:00:00': 2, '13:50:00': 3, '15:40:00': 4, '17:25:00': 5,
+                 '19:10:00': 6}
 
         # таблицы свободных аудиторий (строка - день, столбец - пара)
         numeratorFreeCabinets = [[[] for _ in range(7)] for _ in range(6)]
         denominatorFreeCabinets = [[[] for _ in range(7)] for _ in range(6)]
 
         def isCabinetSuitable(cab):
-            if 'л' in cab or 'ю' in cab:
-                return 1
             try:
-                float(cab.strip('кк '))
+                float(cab.strip('л').strip('ю').strip('кк ').strip('а'))
                 return 1
             except:
                 return 0
 
         def unspecTimeChooser(unspecTime):
             validTimes = ['08:30:00', '10:15:00', '12:00:00', '13:50:00', '15:40:00', '17:25:00', '19:10:00']
-            validTimesMinutes = [list(map(int, t.split(':')[:-1]))[0] * 60 + list(map(int, t.split(':')[:-1]))[1] for t in
+            validTimesMinutes = [list(map(int, t.split(':')[:-1]))[0] * 60 + list(map(int, t.split(':')[:-1]))[1] for t
+                                 in
                                  validTimes]
             unspecTimeMinutes = list(map(int, unspecTime.split(':')[:-1]))[0] * 60 + \
                                 list(map(int, unspecTime.split(':')[:-1]))[1]
             validTimesMinutes.append(unspecTimeMinutes)
             validTimesMinutes.sort()
             ind = validTimesMinutes.index(unspecTimeMinutes)
-            prevTime = validTimesMinutes[ind - 1]
+            prevTime = validTimesMinutes[(ind - 1) if ind > 0 else 1]
             curTime = validTimesMinutes[ind]
-            nextTime = validTimesMinutes[ind + 1]
+            nextTime = validTimesMinutes[(ind + 1) if ind < 7 else 6]
 
             validTimesMinutes.pop(ind)
             if curTime - prevTime < nextTime - curTime:
@@ -162,8 +166,10 @@ def process():
         # туда своболные - делаем разность множества всех аудиторий и занятых для конкретных дня и пары
         for day in range(len(numeratorFreeCabinets)):
             for pare in range(len(numeratorFreeCabinets[0])):
-                numeratorFreeCabinets[day][pare] = sorted(list(allCabinets - set(numeratorFreeCabinets[day][pare])), key=cabinetsCmp)
-                denominatorFreeCabinets[day][pare] = sorted(list(allCabinets - set(denominatorFreeCabinets[day][pare])), key=cabinetsCmp)
+                numeratorFreeCabinets[day][pare] = sorted(list(allCabinets - set(numeratorFreeCabinets[day][pare])),
+                                                          key=cabinetsCmp)
+                denominatorFreeCabinets[day][pare] = sorted(list(allCabinets - set(denominatorFreeCabinets[day][pare])),
+                                                            key=cabinetsCmp)
 
         # заполняем файл с результатом
         # Структура файла:
@@ -175,15 +181,16 @@ def process():
         with open('res.txt', 'w') as f:
             for day in range(len(numeratorFreeCabinets)):
                 for pare in range(len(numeratorFreeCabinets[0])):
-                    f.write('#'.join(numeratorFreeCabinets[day][pare])+('##' if pare != len(numeratorFreeCabinets[0])-1 else ''))
-                f.write('###') if day != len(numeratorFreeCabinets)-1 else f.write('')
+                    f.write('#'.join(numeratorFreeCabinets[day][pare]) + (
+                        '##' if pare != len(numeratorFreeCabinets[0]) - 1 else ''))
+                f.write('###') if day != len(numeratorFreeCabinets) - 1 else f.write('')
             f.write('\n')
 
             for day in range(len(denominatorFreeCabinets)):
                 for pare in range(len(denominatorFreeCabinets[0])):
-                    f.write('#'.join(denominatorFreeCabinets[day][pare])+('##' if pare != len(denominatorFreeCabinets[0])-1 else ''))
-                f.write('###') if day != len(denominatorFreeCabinets)-1 else f.write('')
-
+                    f.write('#'.join(denominatorFreeCabinets[day][pare]) + (
+                        '##' if pare != len(denominatorFreeCabinets[0]) - 1 else ''))
+                f.write('###') if day != len(denominatorFreeCabinets) - 1 else f.write('')
 
         # Заливаем файлы в firebase.storage
         storage.child('uuids.txt').put('uuids.txt')
@@ -193,16 +200,23 @@ def process():
         print('Данные актуальны!')
 
 
+# DEBUG
+# process()
+
 if __name__ == '__main__':
     try:
         process()
     except:
+        with open('uuids.txt', 'w') as f:
+            f.write('')
         print('Паника на корабле! Но возможно лежит сервак а не мой скрипт. Подождем 3\'...')
         sleep(180)
 
         try:
             process()
         except Exception as e:
+            with open('uuids.txt', 'w') as f:
+                f.write('')
             print('И все же скрипт гавно... Чини!')
             print(e)
             exit(1)
