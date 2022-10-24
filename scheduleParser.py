@@ -1,3 +1,5 @@
+import sys
+
 import requests
 from requests.structures import CaseInsensitiveDict
 from time import *
@@ -46,6 +48,8 @@ def process():
     # Анализируем построчно html: если кнопка с расписанием группы зеленая
     # (то есть у группы есть расписание) - добавляем в массив валидных групп соответвующую группу
     for i, line in enumerate(htmlLines):
+        if 'КФ' in line or 'МФ' in line:
+            break
         if 'class="btn btn-primary text-nowrap" style="margin:1px">' in line:
             groupsNames.append(htmlLines[i + 1].strip(' '))
 
@@ -74,7 +78,7 @@ def process():
     if not actualStartDate:
         raise
 
-    if oldStartDate != actualStartDate:
+    if oldStartDate != actualStartDate or len(sys.argv) > 1:
         print('\nДанные устарели/их нет. Ну шо, го их скачаем...')
         print(f'Нада выкачать инфу про {len(groupsNames)} групп')
         print(f'\nВыкачиваю ID-шники:')
@@ -84,15 +88,24 @@ def process():
             json = requests.post(urlSearch, headers=headersSearch, data=data.encode('utf-8')).json()
             groupsIDs.append(json['items'][0]['uuid'])
             sleep(0.4)
-            if not i % 100:
-                # печать прогресса
-                print(f'{i}/{len(groupsNames)}')
+
+            # печать прогресса
+            print(f'\r{i}/{len(groupsNames)}', end='')
+            sys.stdout.flush()
+
+        print(f'\r                                                                                 ')
 
         # Пишем в uuids.txt первой строкой - актуальную дату начала сема, последующими - uuids валидных групп
         with open('uuids.txt', 'w') as f:
             f.write(requests.get(urlSchedule + groupsIDs[0], headers=headersSchedule).json()['semester_start'] + '\n')
             for uuid in groupsIDs:
                 f.write(uuid + '\n')
+
+        # with open('uuids.txt') as f:
+        #     # f.readlines()
+        #     # f.write(requests.get(urlSchedule + groupsIDs[0], headers=headersSchedule).json()['semester_start'] + '\n')
+        #     for line in f.readlines()[1:]:
+        #         groupsIDs.append(line.strip('\n'))
 
         pares = {'08:30:00': 0, '10:15:00': 1, '12:00:00': 2, '13:50:00': 3, '15:40:00': 4, '17:25:00': 5,
                  '19:10:00': 6}
@@ -143,6 +156,7 @@ def process():
 
                 cabinet = lesson['cabinet']
                 is_numerator = lesson['is_numerator']
+
                 if isCabinetSuitable(cabinet):
                     allCabinets.append(cabinet)
                     if is_numerator:
@@ -150,8 +164,11 @@ def process():
                     else:
                         denominatorFreeCabinets[day][pare].append(cabinet)
             sleep(0.4)
-            if not i % 100:
-                print(f'{i}/{len(groupsIDs)}')
+            print(f'\r{i}/{len(groupsIDs)}', end='')
+            sys.stdout.flush()
+            # if not i % 100:
+            #     print(f'{i}/{len(groupsIDs)}')
+        print(f'\r                                                                                 ')
 
         # удаляем дублирующиеся аудитории
         allCabinets = set(allCabinets)
@@ -171,7 +188,7 @@ def process():
                 denominatorFreeCabinets[day][pare] = sorted(list(allCabinets - set(denominatorFreeCabinets[day][pare])),
                                                             key=cabinetsCmp)
 
-        # заполняем файл с результатом
+        # заполняем файл с результатом.
         # Структура файла:
         # 1-я строка (аудитории числителя):
         # через # - аудитории конкретной пары конкретного дня
