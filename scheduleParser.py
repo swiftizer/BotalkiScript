@@ -50,7 +50,9 @@ def process():
     for i, line in enumerate(htmlLines):
         if 'КФ' in line or 'МФ' in line:
             break
-        if 'class="btn btn-primary text-nowrap" style="margin:1px">' in line:
+        # if 'class="btn btn-primary text-nowrap" style="margin:1px">' in line:
+        #     groupsNames.append(htmlLines[i + 1].strip(' '))
+        if '<a href="/schedule/' in line and 'disabled="disabled"' not in line:
             groupsNames.append(htmlLines[i + 1].strip(' '))
 
     if not groupsNames:
@@ -85,8 +87,12 @@ def process():
         # По именам валидных групп выкачиваем их uuids
         for i, name in enumerate(groupsNames):
             data = '{ ' + f'"parent_uuid": "", "query": "{name}", "type": "group"' + '}'
+            # data = '{ ' + f'"parent_uuid": "", "query": "{groupsNames[425+i]}", "type": "group"' + '}'
             json = requests.post(urlSearch, headers=headersSearch, data=data.encode('utf-8')).json()
-            groupsIDs.append(json['items'][0]['uuid'])
+            try:
+                groupsIDs.append(json['items'][0]['uuid'])
+            except:
+                print(f' [Инфу про группу {name} не удалось скачать]')
             sleep(0.4)
 
             # печать прогресса
